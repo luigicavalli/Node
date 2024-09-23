@@ -34,12 +34,14 @@ const getOne = (req: Request, res: Response) => {
 };
 const create = (req: Request, res: Response) => {
   const { error } = schema.validate(req.body);
+  const { id, name } = req.body;
+  const newPlanet = { id, name };
 
   if (error) {
     return res.status(400).json({ error: error.details[0].message });
   }
 
-  planets.push(req.body);
+  planets = [...planets, newPlanet];
   res.status(201).json({ msg: "The planet was created" });
 };
 const updateById = (req: Request, res: Response) => {
