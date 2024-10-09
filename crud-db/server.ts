@@ -24,8 +24,6 @@ const setupDb = async () => {
 
   await db.none(`INSERT INTO planets (name) VALUES ('Earth')`);
   await db.none(`INSERT INTO planets (name) VALUES ('Mars')`);
-  await db.none(`INSERT INTO planets (name) VALUES ('Jupiter')`);
-  await db.none(`INSERT INTO planets (name) VALUES ('Venus')`);
 };
 
 setupDb();
