@@ -1,88 +1,78 @@
 import express from "express";
 import morgan from "morgan";
-import dotenv from "dotenv";
-import Joi from "joi";
-
-dotenv.config();
+import pgPromise from "pg-promise";
 
 const app = express();
-const port = process.env.PORT || 3000;
 
 app.use(morgan("dev"));
+
 app.use(express.json());
 
-const schema = Joi.object({
-  id: Joi.number().integer().required(),
-  name: Joi.string().required(),
-});
+const port = process.env.PORT || 3000;
 
-type Planet = {
-  id: number;
-  name: string;
+const db = pgPromise()("postgres://postgres:postgres@localhost:5432/example");
+
+const setupDb = async () => {
+  await db.none(`
+    DROP TABLE IF EXISTS planets;
+
+    CREATE TABLE planets (
+    id SERIAL NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL
+    );
+  `);
+
+  await db.none(`INSERT INTO planets (name) VALUES ('Earth')`);
+  await db.none(`INSERT INTO planets (name) VALUES ('Mars')`);
+  await db.none(`INSERT INTO planets (name) VALUES ('Jupiter')`);
+  await db.none(`INSERT INTO planets (name) VALUES ('Venus')`);
 };
 
-type Planets = Planet[];
+setupDb();
 
-let planets: Planets = [
-  {
-    id: 1,
-    name: "Earth",
-  },
-  {
-    id: 2,
-    name: "Mars",
-  },
-];
+console.log(db);
 
-app.get("/api/planets", (req, res) => {
+app.get("/api/planets", async (req, res) => {
+  const planets = await db.many(`SELECT * FROM planets;`);
   res.status(200).json(planets);
 });
 
-app.get("/api/planets/:id", (req, res) => {
+app.get("/api/planets/:id", async (req, res) => {
   const { id } = req.params;
-  const planet = planets.find((p) => p.id === Number(id));
+
+  const planet = await db.oneOrNone(
+    `SELECT * FROM planets WHERE id=$1;`,
+    Number(id)
+  );
+
   res.status(200).json(planet);
 });
 
-app.post("/api/planets", (req, res) => {
-  const { error } = schema.validate(req.body);
+app.post("/api/planets", async (req, res) => {
+  const { name } = req.body;
 
-  if (error) {
-    return res.status(400).json({ error: error.details[0].message });
-  }
+  const newPlanet = { name };
 
-  planets.push(req.body);
-  res.status(201).json({ msg: "The planet was created" });
+  await db.oneOrNone(`INSERT INTO planets (name) VALUES ($1)`, name);
+
+  res.status(201).json({ message: "The planet was created" });
 });
 
-app.put("/api/planets/:id", (req, res) => {
-  const { error } = schema.validate(req.body);
+app.put("/api/planets/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name } = req.body;
 
-  if (error) {
-    return res.status(400).json({ error: error.details[0].message });
-  }
+  await db.none(`UPDATE planets SET name=$2 WHERE id=$1`, [id, name]);
 
-  const index = planets.findIndex((p) => {
-    return p.id === req.body.id;
-  });
-  if (index !== -1) {
-    planets[index] = req.body;
-  } else {
-    res.status(404).json({ message: "Planet not found" });
-  }
   res.status(200).json({ message: "The planet was updated" });
 });
 
-app.delete("/api/planets/:id", (req, res) => {
-  const index = planets.findIndex((todo) => {
-    return todo.id === Number(req.query.id);
-  });
-  if (index !== -1) {
-    planets.splice(index, 1);
-    res.status(200).json({ message: "The planet was deleted" });
-  } else {
-    res.status(404).json({ message: "Planet not found" });
-  }
+app.delete("/api/planets/:id", async (req, res) => {
+  const { id } = req.params;
+
+  await db.none(`DELETE FROM planets WHERE id=$1`, Number(id));
+
+  res.status(200).json({ message: "The planet was deleted" });
 });
 
 app.listen(port, () => {
