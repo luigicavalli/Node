@@ -1,8 +1,19 @@
 import express from "express";
 import morgan from "morgan";
 import pgPromise from "pg-promise";
+import multer from "multer";
 
 const app = express();
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "./uploads");
+  },
+  filename: (req, file, cb) => {
+    cb(null, file.originalname);
+  },
+});
+const upload = multer({ storage });
 
 app.use(morgan("dev"));
 
@@ -18,7 +29,8 @@ const setupDb = async () => {
 
     CREATE TABLE planets (
     id SERIAL NOT NULL PRIMARY KEY,
-    name TEXT NOT NULL
+    name TEXT NOT NULL,
+    image TEXT
     );
   `);
 
@@ -71,6 +83,20 @@ app.delete("/api/planets/:id", async (req, res) => {
   await db.none(`DELETE FROM planets WHERE id=$1`, Number(id));
 
   res.status(200).json({ message: "The planet was deleted" });
+});
+
+app.post("/api/planets/:id/image", upload.single("image"), async (req, res) => {
+  const { id } = req.params;
+
+  const fileName = req.file?.path;
+
+  await db.none(`UPDATE planets SET image=$2 WHERE id=$1`, [id, fileName]);
+
+  if (fileName) {
+    res.status(201).json({ message: "Planet image uploaded successfully" });
+  } else {
+    res.status(400).json({ message: "Planet image failed to upload" });
+  }
 });
 
 app.listen(port, () => {
