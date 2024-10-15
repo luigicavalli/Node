@@ -1,7 +1,7 @@
 import express from "express";
 import morgan from "morgan";
-import pgPromise from "pg-promise";
 import multer from "multer";
+import { db } from "./db.js"
 
 const app = express();
 
@@ -20,25 +20,6 @@ app.use(morgan("dev"));
 app.use(express.json());
 
 const port = process.env.PORT || 3000;
-
-const db = pgPromise()("postgres://postgres:postgres@localhost:5432/example");
-
-const setupDb = async () => {
-  await db.none(`
-    DROP TABLE IF EXISTS planets;
-
-    CREATE TABLE planets (
-    id SERIAL NOT NULL PRIMARY KEY,
-    name TEXT NOT NULL,
-    image TEXT
-    );
-  `);
-
-  await db.none(`INSERT INTO planets (name) VALUES ('Earth')`);
-  await db.none(`INSERT INTO planets (name) VALUES ('Mars')`);
-};
-
-setupDb();
 
 console.log(db);
 
